@@ -34,7 +34,8 @@ def login():
                     "facultyId": user['faculty_id_number'],
                     "fullName": user['full_name'],
                     "email": user['email'],
-                    "phone": user['phone']
+                    "phone": user['phone'],
+                    "profileImage": user["profile_image"]
                 }
             }), 200
         else:
