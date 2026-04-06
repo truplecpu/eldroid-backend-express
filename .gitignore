@@ -1,0 +1,41 @@
+# --- Python / Flask ---
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+bin/
+lib/
+include/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables (Crucial for Supabase keys)
+.env
+.flaskenv
+
+# --- Android / Kotlin ---
+# Build folders
+build/
+.gradle/
+captures/
+
+# Local configuration (SDK paths, etc)
+local.properties
+.bundle/
+
+# --- IDEs ---
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+
+# VS Code
+.vscode/
+
+# --- System ---
+.DS_Store
+Thumbs.db
