@@ -1,21 +1,12 @@
-# --- Python / Flask ---
-# Virtual Environments
-.venv/
-env/
-venv/
-ENV/
-bin/
-lib/
-include/
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Environment variables (Crucial for Supabase keys)
+# Environment variables
 .env
-.flaskenv
 
 # --- Android / Kotlin ---
 # Build folders
