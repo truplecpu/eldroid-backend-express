@@ -3,42 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eldroid Parent Chat Test</title>
+    <title>Eldroid Parent Chat</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; background-color: #f0f2f5; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h2 { color: #1a73e8; text-align: center; margin-top: 0; }
         #chat-section { display: none; }
-        .message { margin: 10px 0; padding: 8px; border-radius: 4px; }
-        .sent { background-color: #e3f2fd; text-align: right; }
-        .received { background-color: #f5f5f5; }
-        #messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
-        input, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { cursor: pointer; background-color: #4CAF50; color: white; border: none; }
-        button:hover { background-color: #45a049; }
+        .message { margin: 10px 0; padding: 10px 14px; border-radius: 18px; max-width: 80%; line-height: 1.4; position: relative; clear: both; }
+        .sent { background-color: #0084ff; color: white; float: right; border-bottom-right-radius: 4px; }
+        .received { background-color: #e4e6eb; color: #050505; float: left; border-bottom-left-radius: 4px; }
+        #messages { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background: #fff; border-radius: 8px; display: flex; flex-direction: column; }
+        .time { font-size: 0.7em; opacity: 0.7; margin-top: 4px; display: block; }
+        input, select, button { padding: 10px; margin: 8px 0; width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        button { cursor: pointer; background-color: #1a73e8; color: white; border: none; font-weight: bold; transition: background 0.2s; }
+        button:hover { background-color: #1557b0; }
+        button:disabled { background-color: #ccc; }
+        .user-info { font-size: 0.9em; background: #e8f0fe; padding: 10px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #1a73e8; }
     </style>
 </head>
 <body>
-    <h2>Eldroid Parent Chat Test</h2>
-    
-    <div id="login-section">
-        <h3>Parent Login</h3>
-        <label for="parentSelect">Select a Parent from Database:</label>
-        <select id="parentSelect" onchange="updateParentInfo()">
-            <option value="">-- Choose a Parent --</option>
-        </select>
-        <input type="text" id="parentName" placeholder="Your Name" readonly>
-        <button onclick="login()">Login & Connect</button>
-        <p style="font-size: 0.8em; color: #666;">Note: Selecting a parent will assign them an ID (1-9) based on the test configuration.</p>
-    </div>
+    <div class="container">
+        <h2>Eldroid Parent Chat</h2>
+        
+        <div id="login-section">
+            <h3>Select Your Profile</h3>
+            <select id="parentSelect" onchange="updateParentInfo()">
+                <option value="">-- Choose Your Name --</option>
+            </select>
+            <input type="text" id="parentName" placeholder="Selected Name" readonly>
+            <button id="loginBtn" onclick="login()">Login & Start Chatting</button>
+            <p style="font-size: 0.8em; color: #666; text-align: center;">This simulates a parent logging into the portal.</p>
+        </div>
 
-    <div id="chat-section">
-        <p>Logged in as: <strong id="display-name"></strong></p>
-        <p>Parent ID: <strong id="display-id" style="color: blue;"></strong></p>
-        <hr>
-        <input type="text" id="teacherId" placeholder="Teacher ID (e.g., 2023-00154)" value="2023-00154">
-        <div id="messages"></div>
-        <input type="text" id="messageInput" placeholder="Type a message...">
-        <button onclick="sendMessage()">Send to Teacher</button>
+        <div id="chat-section">
+            <div class="user-info">
+                Logged in as: <strong id="display-name"></strong><br>
+                ID: <strong id="display-id" style="color: #1a73e8;"></strong>
+            </div>
+            
+            <label for="teacherSelect"><strong>Chatting with Teacher:</strong></label>
+            <select id="teacherSelect" onchange="loadHistory()">
+                <option value="">-- Select a Teacher --</option>
+            </select>
+            <hr>
+            
+            <div id="messages"></div>
+            
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="messageInput" placeholder="Write a message..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()" style="width: 80px;">Send</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -46,36 +62,74 @@
         let token;
         let userId;
 
-        // Fetch parents on load
-        window.onload = async () => {
+        window.onload = () => {
+            fetchParents();
+            fetchTeachers();
+        };
+
+        async function fetchParents() {
             try {
                 const response = await fetch('/api/parents');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
                 const select = document.getElementById('parentSelect');
                 
+                if (!data.data || data.data.length === 0) {
+                    const option = document.createElement('option');
+                    option.text = '-- No Parents found in DB --';
+                    option.disabled = true;
+                    select.appendChild(option);
+                    return;
+                }
+
                 data.data.forEach(parent => {
                     const option = document.createElement('option');
-                    option.value = parent.sender_name;
-                    option.text = `${parent.sender_name} (${parent.student_relation})`;
+                    option.value = parent.full_name;
+                    option.text = parent.full_name;
                     select.appendChild(option);
                 });
-            } catch (err) {
+            } catch (err) { 
                 console.error('Error fetching parents:', err);
+                const select = document.getElementById('parentSelect');
+                select.innerHTML = '<option value="">-- Error loading parents --</option>';
             }
-        };
+        }
+
+        async function fetchTeachers() {
+            try {
+                const response = await fetch('/api/faculty');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                const select = document.getElementById('teacherSelect');
+                
+                if (!data.data || data.data.length === 0) {
+                    const option = document.createElement('option');
+                    option.text = '-- No Teachers found in DB --';
+                    option.disabled = true;
+                    select.appendChild(option);
+                    return;
+                }
+
+                data.data.forEach(faculty => {
+                    const option = document.createElement('option');
+                    option.value = faculty.faculty_id_number;
+                    option.text = faculty.full_name;
+                    select.appendChild(option);
+                });
+            } catch (err) { 
+                console.error('Error fetching teachers:', err);
+                const select = document.getElementById('teacherSelect');
+                select.innerHTML = '<option value="">-- Error loading teachers --</option>';
+            }
+        }
 
         function updateParentInfo() {
-            const select = document.getElementById('parentSelect');
-            const nameInput = document.getElementById('parentName');
-            nameInput.value = select.value;
+            document.getElementById('parentName').value = document.getElementById('parentSelect').value;
         }
 
         async function login() {
             const parentName = document.getElementById('parentName').value;
-            if (!parentName) {
-                alert('Please select a parent first');
-                return;
-            }
+            if (!parentName) return alert('Please select a parent profile');
 
             try {
                 const response = await fetch('/api/auth/parent-login', {
@@ -92,66 +146,76 @@
                     document.getElementById('display-id').innerText = userId;
                     document.getElementById('login-section').style.display = 'none';
                     document.getElementById('chat-section').style.display = 'block';
-                    
                     connectSocket();
-                } else {
-                    alert('Login failed: ' + data.message);
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Error logging in');
-            }
+                } else { alert('Login failed: ' + data.message); }
+            } catch (err) { alert('Error logging in'); }
         }
 
         function connectSocket() {
-            socket = io({
-                auth: { token }
-            });
-
-            socket.on('connect', () => {
-                appendLog('System', 'Connected to WebSocket');
-            });
-
+            socket = io({ auth: { token } });
             socket.on('receive_message', (data) => {
-                appendMessage(data.sender_id, data.message, 'received');
+                const currentTeacher = document.getElementById('teacherSelect').value;
+                if (data.sender_id === currentTeacher || data.receiver_id === currentTeacher) {
+                    appendMessage(data.sender_id, data.message, data.sender_id === userId ? 'sent' : 'received', data.created_at);
+                }
             });
+            socket.on('error', (err) => appendLog('Error', err.message));
+        }
 
-            socket.on('message_sent', (data) => {
-                // Already handled in local appendMessage for better UX
-            });
+        async function loadHistory() {
+            const teacherId = document.getElementById('teacherSelect').value;
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = ''; // Clear current messages
+            if (!teacherId) return;
 
-            socket.on('error', (err) => {
-                appendLog('Error', err.message);
-            });
-
-            socket.on('disconnect', () => {
-                appendLog('System', 'Disconnected');
-            });
+            try {
+                const response = await fetch(`/api/chat/history/${teacherId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    data.data.forEach(msg => {
+                        appendMessage(msg.sender_id, msg.message, msg.sender_id === userId ? 'sent' : 'received', msg.created_at);
+                    });
+                }
+            } catch (err) { console.error('Error loading history:', err); }
         }
 
         function sendMessage() {
-            const receiver_id = document.getElementById('teacherId').value;
+            const receiver_id = document.getElementById('teacherSelect').value;
             const message = document.getElementById('messageInput').value;
-
-            if (!message) return;
+            if (!receiver_id) return alert('Please select a teacher to chat with');
+            if (!message.trim()) return;
 
             socket.emit('send_message', { receiver_id, message });
-            appendMessage('You', message, 'sent');
+            // appendMessage('You', message, 'sent'); // Handled by server emit or local append
             document.getElementById('messageInput').value = '';
+            
+            // For immediate feedback, we append locally but server will also emit back
+            appendMessage(userId, message, 'sent', new Date().toISOString());
         }
 
-        function appendMessage(sender, text, type) {
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        function appendMessage(sender, text, type, timestamp) {
+            const messagesDiv = document.getElementById('messages');
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message ' + type;
-            msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
-            document.getElementById('messages').appendChild(msgDiv);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            
+            const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            msgDiv.innerHTML = `${text}<span class="time">${timeStr}</span>`;
+            
+            messagesDiv.appendChild(msgDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
         function appendLog(type, text) {
             const logDiv = document.createElement('div');
+            logDiv.style.textAlign = 'center';
             logDiv.style.color = '#888';
-            logDiv.style.fontSize = '0.8em';
+            logDiv.style.fontSize = '0.7em';
             logDiv.innerText = `[${type}] ${text}`;
             document.getElementById('messages').appendChild(logDiv);
         }

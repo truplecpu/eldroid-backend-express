@@ -3,12 +3,19 @@ const supabaseService = require("../services/supabaseService");
 class FacultyController {
   async getProfile(req, res) {
     try {
-      const profile = await supabaseService.getFacultyProfile(
-        req.params.faculty_id,
-      );
-      return res.status(200).json({ status: "success", data: profile });
+      const profile = await supabaseService.getFacultyProfile(req.params.faculty_id);
+      return res.status(200).json({ status: 'success', data: profile });
     } catch (error) {
-      return res.status(500).json({ status: "error", message: error.message });
+      return res.status(500).json({ status: 'error', message: error.message });
+    }
+  }
+
+  async getAllFaculty(req, res) {
+    try {
+      const faculty = await supabaseService.getAllFaculty();
+      return res.status(200).json({ status: 'success', data: faculty });
+    } catch (error) {
+      return res.status(500).json({ status: 'error', message: error.message });
     }
   }
 
@@ -42,18 +49,11 @@ class FacultyController {
       return res.status(500).json({ status: "error", message: error.message });
     }
   }
-  // Example logic for fetching the inbox list
-  // facultyController.js
-  // facultyController.js
 
   async getMessages(req, res) {
     try {
-      // 1. Get the ID from the token (provided by your authMiddleware)
       const facultyId = req.user.id || req.user.userId || req.user.facultyId;
-
-      // 2. Call the function that lives in supabaseService.js
       const messages = await supabaseService.getMessages(facultyId);
-
       return res.status(200).json({ status: "success", data: messages });
     } catch (error) {
       console.error("Fetch Error:", error.message);

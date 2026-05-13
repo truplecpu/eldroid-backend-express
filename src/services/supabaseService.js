@@ -8,7 +8,7 @@ class SupabaseService {
       .eq("faculty_id_number", facultyIdNumber)
       .single();
 
-    if (error && error.code !== "PGRST116") throw error; // PGRST116 is "not found"
+    if (error && error.code !== "PGRST116") throw error;
     return data;
   }
 
@@ -23,9 +23,17 @@ class SupabaseService {
     return data;
   }
 
+  async getAllFaculty() {
+    const { data, error } = await supabase
+      .from("faculty")
+      .select("faculty_id_number, full_name");
+
+    if (error) throw error;
+    return data;
+  }
+
   async getCourses() {
     const { data, error } = await supabase.from("courses").select("*");
-
     if (error) throw error;
     return data;
   }
@@ -52,56 +60,53 @@ class SupabaseService {
     return data;
   }
 
-  // services/supabaseService.js
-
-  async getMessages(facultyId) {
-    // 1. Get the messages
+  async getMessages(userId) {
+    // 1. Fetch all messages for this teacher
     const { data: messages, error: msgError } = await supabase
       .from("chat_messages")
       .select("*")
-      .or(`sender_id.eq.${facultyId},receiver_id.eq.${facultyId}`)
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .order("created_at", { ascending: false });
 
     if (msgError) throw msgError;
 
-    // 2. Extract unique parent IDs from those messages
+    // 2. Get a list of all unique parent_ids from these messages
     const parentIds = [
       ...new Set(
         messages.map((m) =>
-          m.sender_id === facultyId ? m.receiver_id : m.sender_id,
+          m.sender_id === userId ? m.receiver_id : m.sender_id,
         ),
       ),
     ];
 
-    // 3. Fetch names for those IDs from the actual table where names exist
-    const { data: parentInfo, error: profError } = await supabase
-      .from("parent_messages") // Using the table from your getUniqueParents function
-      .select("sender_id, sender_name")
-      .in("sender_id", parentIds);
+    // 3. Look up the names in your NEW 'parents' table (from image_2ad4fb.png)
+    const { data: parentProfiles } = await supabase
+      .from("parents")
+      .select("parent_id, full_name")
+      .in("parent_id", parentIds);
 
-    // 4. Map the names back to the messages
-    const profileMap = {};
-    if (parentInfo) {
-      parentInfo.forEach((p) => {
-        // Map the ID to the Name
-        profileMap[p.sender_id] = p.sender_name;
+    // 4. Create a map for quick lookup: { "parent_1": "Mrs. Santerna" }
+    const nameMap = {};
+    if (parentProfiles) {
+      parentProfiles.forEach((p) => {
+        nameMap[p.parent_id] = p.full_name;
       });
     }
-    // 5. Group by parent so you only get the LATEST message per parent
+
+    // 5. Group by parent and attach the names
     const uniqueInbox = [];
     const seen = new Set();
 
     messages.forEach((msg) => {
-      // Determine who the parent is (the person who ISN'T the faculty)
       const otherParty =
-        msg.sender_id === facultyId ? msg.receiver_id : msg.sender_id;
+        msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
 
       if (!seen.has(otherParty)) {
         seen.add(otherParty);
         uniqueInbox.push({
           ...msg,
-          // If the map found a name, use it; otherwise, use "Parent"
-          sender_name: profileMap[otherParty] || "Parent",
+          // Replace the ID with the name from your new table
+          sender_name: nameMap[otherParty] || "Parent",
         });
       }
     });
@@ -110,24 +115,33 @@ class SupabaseService {
   }
 
   async getUniqueParents() {
-    // In a real app, there would be a parents table.
-    // Here we extract unique names from the parent_messages table as requested.
     const { data, error } = await supabase
-      .from("parent_messages")
-      .select("sender_name, student_relation");
+      .from("parents")
+      .select("parent_id, full_name, student_id");
 
     if (error) throw error;
+    return data;
+  }
 
-    // Filter for unique names
-    const unique = [];
-    const map = new Map();
-    for (const item of data) {
-      if (!map.has(item.sender_name)) {
-        map.set(item.sender_name, true);
-        unique.push(item);
-      }
-    }
-    return unique;
+  async getParentById(parentId) {
+    const { data, error } = await supabase
+      .from("parents")
+      .select("*")
+      .eq("parent_id", parentId)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+    return data;
+  }
+
+  async getParentByName(fullName) {
+    const { data, error } = await supabase
+      .from("parents")
+      .select("*")
+      .eq("full_name", fullName)
+      .single();
+
+    return { data, error };
   }
 
   async getScheduleByDay(day) {

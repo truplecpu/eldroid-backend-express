@@ -74,6 +74,18 @@ router.post('/auth/parent-login', authController.parentLogin);
  */
 router.get('/parents', facultyController.getUniqueParents);
 
+/**
+ * @swagger
+ * /api/faculty:
+ *   get:
+ *     summary: Get all faculty members
+ *     tags: [Faculty]
+ *     responses:
+ *       200:
+ *         description: List of faculty
+ */
+router.get('/faculty', facultyController.getAllFaculty);
+
 // Protected routes (require JWT)
 router.use(authMiddleware);
 

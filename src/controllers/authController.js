@@ -48,30 +48,23 @@ class AuthController {
   }
 
   async parentLogin(req, res) {
-    const { parentName, studentId } = req.body;
+    const { parentName } = req.body;
     
-    // Mapping parents from schema.sql to IDs 1-9 for testing
-    const parentMap = {
-      'Mrs. Santerna': '1',
-      'Mr. Lacorte': '2',
-      'Mr. Amaya': '3',
-      'Mr. Carbajal': '4',
-      'Mrs. Mata': '5',
-      'Mr. Galagar': '6',
-      'Mrs. Lim': '7',
-      'Mr. Villanueva': '8',
-      'Mrs. Cruz': '9'
-    };
-
-    const assignedId = parentMap[parentName] || studentId || 'unknown';
-    const userId = `parent_${assignedId}`;
-
     try {
+      // Find parent by name in the new structured table
+      const { data: parent, error } = await supabaseService.getParentByName(parentName);
+
+      if (error || !parent) {
+        return res.status(404).json({ status: 'error', message: 'Parent not found in database' });
+      }
+
+      const userId = parent.parent_id;
+
       const token = jwt.sign(
         { 
           userId: userId, 
-          parentName, 
-          studentId,
+          parentName: parent.full_name, 
+          studentId: parent.student_id,
           userType: 'parent'
         },
         process.env.JWT_SECRET || 'your_fallback_secret',
@@ -80,12 +73,12 @@ class AuthController {
 
       return res.status(200).json({
         status: 'success',
-        message: 'Parent demo login successful',
+        message: 'Parent login successful',
         token,
         parent_data: {
           userId: userId,
-          parentName,
-          studentId
+          parentName: parent.full_name,
+          studentId: parent.student_id
         }
       });
     } catch (error) {
