@@ -1,121 +1,165 @@
-const supabase = require('../config/supabase');
+const supabase = require("../config/supabase");
 
 class SupabaseService {
   async getFacultyByNumber(facultyIdNumber) {
     const { data, error } = await supabase
-      .from('faculty')
-      .select('*')
-      .eq('faculty_id_number', facultyIdNumber)
+      .from("faculty")
+      .select("*")
+      .eq("faculty_id_number", facultyIdNumber)
       .single();
-    
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
+
+    if (error && error.code !== "PGRST116") throw error; // PGRST116 is "not found"
     return data;
   }
 
   async getFacultyProfile(facultyId) {
     const { data, error } = await supabase
-      .from('faculty')
-      .select('*')
-      .eq('faculty_id_number', facultyId)
+      .from("faculty")
+      .select("*")
+      .eq("faculty_id_number", facultyId)
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   async getCourses() {
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*');
-    
+    const { data, error } = await supabase.from("courses").select("*");
+
     if (error) throw error;
     return data;
   }
 
   async getCourseStudents(courseId) {
     const { data, error } = await supabase
-      .from('student_grades')
-      .select('*, students(student_id_number, first_name, last_name)')
-      .eq('course_id', courseId);
-    
+      .from("student_grades")
+      .select("*, students(student_id_number, first_name, last_name)")
+      .eq("course_id", courseId);
+
     if (error) throw error;
     return data;
   }
 
   async markAttendance(attendanceData) {
-    const { data, error } = await supabase
-      .from('attendance')
-      .upsert({
-        course_id: attendanceData.course_id,
-        student_id: attendanceData.student_id,
-        attendance_date: attendanceData.attendance_date,
-        status: attendanceData.status
-      });
-    
+    const { data, error } = await supabase.from("attendance").upsert({
+      course_id: attendanceData.course_id,
+      student_id: attendanceData.student_id,
+      attendance_date: attendanceData.attendance_date,
+      status: attendanceData.status,
+    });
+
     if (error) throw error;
     return data;
   }
 
-  async getMessages() {
-    const { data, error } = await supabase
-      .from('parent_messages')
-      .select('*')
-      .order('id', { ascending: false });
-    
-    if (error) throw error;
-    return data;
+  // services/supabaseService.js
+
+  async getMessages(facultyId) {
+    // 1. Get the messages
+    const { data: messages, error: msgError } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .or(`sender_id.eq.${facultyId},receiver_id.eq.${facultyId}`)
+      .order("created_at", { ascending: false });
+
+    if (msgError) throw msgError;
+
+    // 2. Extract unique parent IDs from those messages
+    const parentIds = [
+      ...new Set(
+        messages.map((m) =>
+          m.sender_id === facultyId ? m.receiver_id : m.sender_id,
+        ),
+      ),
+    ];
+
+    // 3. Fetch names for those IDs from the actual table where names exist
+    const { data: parentInfo, error: profError } = await supabase
+      .from("parent_messages") // Using the table from your getUniqueParents function
+      .select("sender_id, sender_name")
+      .in("sender_id", parentIds);
+
+    // 4. Map the names back to the messages
+    const profileMap = {};
+    if (parentInfo) {
+      parentInfo.forEach((p) => {
+        // Map the ID to the Name
+        profileMap[p.sender_id] = p.sender_name;
+      });
+    }
+    // 5. Group by parent so you only get the LATEST message per parent
+    const uniqueInbox = [];
+    const seen = new Set();
+
+    messages.forEach((msg) => {
+      // Determine who the parent is (the person who ISN'T the faculty)
+      const otherParty =
+        msg.sender_id === facultyId ? msg.receiver_id : msg.sender_id;
+
+      if (!seen.has(otherParty)) {
+        seen.add(otherParty);
+        uniqueInbox.push({
+          ...msg,
+          // If the map found a name, use it; otherwise, use "Parent"
+          sender_name: profileMap[otherParty] || "Parent",
+        });
+      }
+    });
+
+    return uniqueInbox;
   }
 
   async getUniqueParents() {
-    // In a real app, there would be a parents table. 
+    // In a real app, there would be a parents table.
     // Here we extract unique names from the parent_messages table as requested.
     const { data, error } = await supabase
-      .from('parent_messages')
-      .select('sender_name, student_relation');
-    
+      .from("parent_messages")
+      .select("sender_name, student_relation");
+
     if (error) throw error;
-    
+
     // Filter for unique names
     const unique = [];
     const map = new Map();
     for (const item of data) {
-        if(!map.has(item.sender_name)){
-            map.set(item.sender_name, true);
-            unique.push(item);
-        }
+      if (!map.has(item.sender_name)) {
+        map.set(item.sender_name, true);
+        unique.push(item);
+      }
     }
     return unique;
   }
 
   async getScheduleByDay(day) {
     const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .ilike('schedule_days', `%${day}%`);
-    
+      .from("courses")
+      .select("*")
+      .ilike("schedule_days", `%${day}%`);
+
     if (error) throw error;
     return data;
   }
 
   async getFacultyCredentials(fid) {
     const credsResponse = await supabase
-      .from('faculty_credentials')
-      .select('*')
-      .eq('faculty_id_number', fid);
-    
+      .from("faculty_credentials")
+      .select("*")
+      .eq("faculty_id_number", fid);
+
     if (credsResponse.error) throw credsResponse.error;
 
     const profileResponse = await supabase
-      .from('faculty')
-      .select('academic_mission')
-      .eq('faculty_id_number', fid)
+      .from("faculty")
+      .select("academic_mission")
+      .eq("faculty_id_number", fid)
       .single();
-    
+
     if (profileResponse.error) throw profileResponse.error;
 
     return {
       credentials: credsResponse.data,
-      mission: profileResponse.data.academic_mission || 'Academic mission not set.'
+      mission:
+        profileResponse.data.academic_mission || "Academic mission not set.",
     };
   }
 }

@@ -50,11 +50,26 @@ class AuthController {
   async parentLogin(req, res) {
     const { parentName, studentId } = req.body;
     
-    // This is a demo login for testing parent-teacher chat
+    // Mapping parents from schema.sql to IDs 1-9 for testing
+    const parentMap = {
+      'Mrs. Santerna': '1',
+      'Mr. Lacorte': '2',
+      'Mr. Amaya': '3',
+      'Mr. Carbajal': '4',
+      'Mrs. Mata': '5',
+      'Mr. Galagar': '6',
+      'Mrs. Lim': '7',
+      'Mr. Villanueva': '8',
+      'Mrs. Cruz': '9'
+    };
+
+    const assignedId = parentMap[parentName] || studentId || 'unknown';
+    const userId = `parent_${assignedId}`;
+
     try {
       const token = jwt.sign(
         { 
-          userId: `parent_${studentId}`, 
+          userId: userId, 
           parentName, 
           studentId,
           userType: 'parent'
@@ -68,7 +83,7 @@ class AuthController {
         message: 'Parent demo login successful',
         token,
         parent_data: {
-          userId: `parent_${studentId}`,
+          userId: userId,
           parentName,
           studentId
         }

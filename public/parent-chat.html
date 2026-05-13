@@ -27,13 +27,13 @@
             <option value="">-- Choose a Parent --</option>
         </select>
         <input type="text" id="parentName" placeholder="Your Name" readonly>
-        <input type="text" id="studentId" placeholder="Student ID (e.g., 2021-00124)" value="2021-00124">
         <button onclick="login()">Login & Connect</button>
+        <p style="font-size: 0.8em; color: #666;">Note: Selecting a parent will assign them an ID (1-9) based on the test configuration.</p>
     </div>
 
     <div id="chat-section">
         <p>Logged in as: <strong id="display-name"></strong></p>
-        <p>Parent ID: <small id="display-id"></small></p>
+        <p>Parent ID: <strong id="display-id" style="color: blue;"></strong></p>
         <hr>
         <input type="text" id="teacherId" placeholder="Teacher ID (e.g., 2023-00154)" value="2023-00154">
         <div id="messages"></div>
@@ -72,13 +72,16 @@
 
         async function login() {
             const parentName = document.getElementById('parentName').value;
-            const studentId = document.getElementById('studentId').value;
+            if (!parentName) {
+                alert('Please select a parent first');
+                return;
+            }
 
             try {
                 const response = await fetch('/api/auth/parent-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ parentName, studentId })
+                    body: JSON.stringify({ parentName })
                 });
                 const data = await response.json();
 
