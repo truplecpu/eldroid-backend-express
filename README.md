@@ -40,13 +40,56 @@ These profiles are mapped to specific IDs for the chat system. You can log in as
 
 ## 📡 Core API Endpoints
 
-### 💬 Chat & WebSockets
-*   **WebSocket Events**:
-    *   `send_message`: `{ receiver_id, message }`
-    *   `receive_message`: Emitted to the receiver.
-*   **Chat History**: `GET /api/chat/history/:receiver_id` (Requires JWT)
+### 💬 WebSocket Implementation (Parent Side)
 
-### 🏫 Faculty Routes (Requires JWT)
+To implement real-time chat in a parent mobile app or web frontend, follow these steps:
+
+#### 1. Authentication
+First, authenticate the parent to get a JWT token:
+```http
+POST /api/auth/parent-login
+Content-Type: application/json
+
+{ "parentName": "Mrs. Santerna" }
+```
+The response will contain a `token` and `userId` (e.g., `parent_1`).
+
+#### 2. Connection
+Initialize the Socket.io connection using the token for authentication:
+```javascript
+const socket = io("YOUR_BACKEND_URL", {
+  auth: { token: "YOUR_JWT_TOKEN" }
+});
+```
+
+#### 3. Sending a Message
+To send a message to a teacher, emit the `send_message` event:
+```javascript
+socket.emit('send_message', {
+  receiver_id: '2023-00154', // The Faculty ID
+  message: 'Hello, Professor!'
+});
+```
+
+#### 4. Receiving Messages
+Listen for the `receive_message` event to handle incoming replies from teachers:
+```javascript
+socket.on('receive_message', (data) => {
+  console.log('New message from:', data.sender_id);
+  console.log('Content:', data.message);
+});
+```
+
+#### 5. Loading History (REST)
+Before starting the real-time session, you should fetch previous conversations:
+```http
+GET /api/chat/history/2023-00154
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+---
+
+## 🏫 Faculty Routes (Requires JWT)
 *   **Profile**: `GET /api/faculty/:faculty_id`
 *   **Courses**: `GET /api/courses`
 *   **Students**: `GET /api/courses/:course_id/students`
