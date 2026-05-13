@@ -66,6 +66,27 @@ class SupabaseService {
     return data;
   }
 
+  async getUniqueParents() {
+    // In a real app, there would be a parents table. 
+    // Here we extract unique names from the parent_messages table as requested.
+    const { data, error } = await supabase
+      .from('parent_messages')
+      .select('sender_name, student_relation');
+    
+    if (error) throw error;
+    
+    // Filter for unique names
+    const unique = [];
+    const map = new Map();
+    for (const item of data) {
+        if(!map.has(item.sender_name)){
+            map.set(item.sender_name, true);
+            unique.push(item);
+        }
+    }
+    return unique;
+  }
+
   async getScheduleByDay(day) {
     const { data, error } = await supabase
       .from('courses')

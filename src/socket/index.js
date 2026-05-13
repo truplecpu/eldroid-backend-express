@@ -25,8 +25,9 @@ const initSocket = (server) => {
   });
 
   io.on('connection', (socket) => {
-    const userId = socket.user.facultyId;
-    console.log(`User connected: ${userId} (${socket.id})`);
+    const userId = socket.user.userId || socket.user.facultyId;
+    const userType = socket.user.userType || 'faculty';
+    console.log(`User connected: ${userId} as ${userType} (${socket.id})`);
 
     // Join a private room for this user
     socket.join(userId);
@@ -41,7 +42,7 @@ const initSocket = (server) => {
           sender_id: userId,
           receiver_id,
           message,
-          sender_type: 'faculty'
+          sender_type: userType
         });
 
         // Emit to receiver's room

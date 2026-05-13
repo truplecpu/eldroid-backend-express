@@ -36,6 +36,44 @@ const router = express.Router();
  */
 router.post('/auth/login', authController.login);
 
+/**
+ * @swagger
+ * /api/auth/parent-login:
+ *   post:
+ *     summary: Demo login for parents
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - parentName
+ *               - studentId
+ *             properties:
+ *               parentName:
+ *                 type: string
+ *               studentId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ */
+router.post('/auth/parent-login', authController.parentLogin);
+
+/**
+ * @swagger
+ * /api/parents:
+ *   get:
+ *     summary: Get unique parent names from messages
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: List of parents
+ */
+router.get('/parents', facultyController.getUniqueParents);
+
 // Protected routes (require JWT)
 router.use(authMiddleware);
 

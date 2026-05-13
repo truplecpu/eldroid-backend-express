@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eldroid Parent Chat Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        #chat-section { display: none; }
+        .message { margin: 10px 0; padding: 8px; border-radius: 4px; }
+        .sent { background-color: #e3f2fd; text-align: right; }
+        .received { background-color: #f5f5f5; }
+        #messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
+        input, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { cursor: pointer; background-color: #4CAF50; color: white; border: none; }
+        button:hover { background-color: #45a049; }
+    </style>
+</head>
+<body>
+    <h2>Eldroid Parent Chat Test</h2>
+    
+    <div id="login-section">
+        <h3>Parent Login</h3>
+        <label for="parentSelect">Select a Parent from Database:</label>
+        <select id="parentSelect" onchange="updateParentInfo()">
+            <option value="">-- Choose a Parent --</option>
+        </select>
+        <input type="text" id="parentName" placeholder="Your Name" readonly>
+        <input type="text" id="studentId" placeholder="Student ID (e.g., 2021-00124)" value="2021-00124">
+        <button onclick="login()">Login & Connect</button>
+    </div>
+
+    <div id="chat-section">
+        <p>Logged in as: <strong id="display-name"></strong></p>
+        <p>Parent ID: <small id="display-id"></small></p>
+        <hr>
+        <input type="text" id="teacherId" placeholder="Teacher ID (e.g., 2023-00154)" value="2023-00154">
+        <div id="messages"></div>
+        <input type="text" id="messageInput" placeholder="Type a message...">
+        <button onclick="sendMessage()">Send to Teacher</button>
+    </div>
+
+    <script>
+        let socket;
+        let token;
+        let userId;
+
+        // Fetch parents on load
+        window.onload = async () => {
+            try {
+                const response = await fetch('/api/parents');
+                const data = await response.json();
+                const select = document.getElementById('parentSelect');
+                
+                data.data.forEach(parent => {
+                    const option = document.createElement('option');
+                    option.value = parent.sender_name;
+                    option.text = `${parent.sender_name} (${parent.student_relation})`;
+                    select.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Error fetching parents:', err);
+            }
+        };
+
+        function updateParentInfo() {
+            const select = document.getElementById('parentSelect');
+            const nameInput = document.getElementById('parentName');
+            nameInput.value = select.value;
+        }
+
+        async function login() {
+            const parentName = document.getElementById('parentName').value;
+            const studentId = document.getElementById('studentId').value;
+
+            try {
+                const response = await fetch('/api/auth/parent-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parentName, studentId })
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    token = data.token;
+                    userId = data.parent_data.userId;
+                    document.getElementById('display-name').innerText = parentName;
+                    document.getElementById('display-id').innerText = userId;
+                    document.getElementById('login-section').style.display = 'none';
+                    document.getElementById('chat-section').style.display = 'block';
+                    
+                    connectSocket();
+                } else {
+                    alert('Login failed: ' + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error logging in');
+            }
+        }
+
+        function connectSocket() {
+            socket = io({
+                auth: { token }
+            });
+
+            socket.on('connect', () => {
+                appendLog('System', 'Connected to WebSocket');
+            });
+
+            socket.on('receive_message', (data) => {
+                appendMessage(data.sender_id, data.message, 'received');
+            });
+
+            socket.on('message_sent', (data) => {
+                // Already handled in local appendMessage for better UX
+            });
+
+            socket.on('error', (err) => {
+                appendLog('Error', err.message);
+            });
+
+            socket.on('disconnect', () => {
+                appendLog('System', 'Disconnected');
+            });
+        }
+
+        function sendMessage() {
+            const receiver_id = document.getElementById('teacherId').value;
+            const message = document.getElementById('messageInput').value;
+
+            if (!message) return;
+
+            socket.emit('send_message', { receiver_id, message });
+            appendMessage('You', message, 'sent');
+            document.getElementById('messageInput').value = '';
+        }
+
+        function appendMessage(sender, text, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + type;
+            msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            document.getElementById('messages').appendChild(msgDiv);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        }
+
+        function appendLog(type, text) {
+            const logDiv = document.createElement('div');
+            logDiv.style.color = '#888';
+            logDiv.style.fontSize = '0.8em';
+            logDiv.innerText = `[${type}] ${text}`;
+            document.getElementById('messages').appendChild(logDiv);
+        }
+    </script>
+</body>
+</html>

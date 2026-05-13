@@ -3,7 +3,7 @@ const chatService = require('../services/chatService');
 class ChatController {
   async getHistory(req, res) {
     const { receiver_id } = req.params;
-    const sender_id = req.user.facultyId;
+    const sender_id = req.user.userId || req.user.facultyId;
 
     try {
       const history = await chatService.getChatHistory(sender_id, receiver_id);

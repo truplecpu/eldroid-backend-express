@@ -46,6 +46,15 @@ class FacultyController {
     }
   }
 
+  async getUniqueParents(req, res) {
+    try {
+      const parents = await supabaseService.getUniqueParents();
+      return res.status(200).json({ status: 'success', data: parents });
+    } catch (error) {
+      return res.status(500).json({ status: 'error', message: error.message });
+    }
+  }
+
   async getScheduleByDay(req, res) {
     try {
       const schedule = await supabaseService.getScheduleByDay(req.params.day);
